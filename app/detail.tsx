@@ -67,14 +67,14 @@ export default function DetailScreen() {
         <SectionTitle>Team</SectionTitle>
         <Card variant="grey">
           <View style={styles.teamMember}>
-            <View style={styles.memberAvatar}>RK</View>
+            <View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>RK</Text></View>
             <View>
               <Text style={styles.memberName}>Rahul Khanna</Text>
               <Text style={styles.memberRole}>CEO · Ex-Apollo Hospitals</Text>
             </View>
           </View>
           <View style={[styles.teamMember, { marginTop: spacing.sm }]}>
-            <View style={styles.memberAvatar}>PM</View>
+            <View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>PM</Text></View>
             <View>
               <Text style={styles.memberName}>Priya Mehta</Text>
               <Text style={styles.memberRole}>CTO · IIT Bombay</Text>
@@ -85,7 +85,7 @@ export default function DetailScreen() {
         <SectionTitle>Milestones</SectionTitle>
         <Card>
           <View style={styles.milestoneRow}>
-            <View style={[styles.milestoneIcon, { backgroundColor: colors.greenLight }]}>✓</View>
+            <View style={[styles.milestoneIcon, { backgroundColor: colors.greenLight }]}><Text style={styles.milestoneIconText}>✓</Text></View>
             <View style={styles.milestoneInfo}>
               <Text style={styles.milestoneName}>Build MVP</Text>
               <Text style={styles.milestoneDate}>Completed Mar 2024</Text>
@@ -93,7 +93,7 @@ export default function DetailScreen() {
             <Text style={styles.milestoneAmt}>₹30,000</Text>
           </View>
           <View style={styles.milestoneRow}>
-            <View style={[styles.milestoneIcon, { backgroundColor: colors.grayLight, borderWidth: 2, borderColor: colors.border }]}>...</View>
+            <View style={[styles.milestoneIcon, { backgroundColor: colors.grayLight, borderWidth: 2, borderColor: colors.border }]}><Text style={styles.milestoneIconText}>...</Text></View>
             <View style={styles.milestoneInfo}>
               <Text style={styles.milestoneName}>Launch App</Text>
               <Text style={styles.milestoneDate}>Expected Jul 2024</Text>
@@ -101,7 +101,7 @@ export default function DetailScreen() {
             <Text style={styles.milestoneAmt}>₹70,000</Text>
           </View>
           <View style={styles.milestoneRow}>
-            <View style={[styles.milestoneIcon, { backgroundColor: colors.grayBadge }]}>—</View>
+            <View style={[styles.milestoneIcon, { backgroundColor: colors.grayBadge }]}><Text style={styles.milestoneIconText}>—</Text></View>
             <View style={styles.milestoneInfo}>
               <Text style={styles.milestoneName}>Scale to 5 Cities</Text>
               <Text style={styles.milestoneDate}>Locked</Text>
@@ -110,7 +110,7 @@ export default function DetailScreen() {
           </View>
         </Card>
 
-        <Button variant="green" onPress={() => router.push('/invest')}>Invest Now</Button>
+        <Button variant="green" onPress={() => console.log('Invest action triggered')}>Invest Now</Button>
       </ScrollView>
     </SafeAreaView>
   );
@@ -238,8 +238,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.grayMedium,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  memberAvatarText: {
     fontSize: fontSize.sm,
     fontWeight: '600',
+    color: colors.text,
   },
   memberName: {
     fontSize: fontSize.base,
@@ -263,8 +266,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
+  },
+  milestoneIconText: {
     fontSize: fontSize.sm,
     fontWeight: '700',
+    color: colors.text,
   },
   milestoneInfo: {
     flex: 1,

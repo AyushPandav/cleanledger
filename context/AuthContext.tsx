@@ -61,7 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true); // true until Firebase restores session
   const [error, setError] = useState<string | null>(null);
 
-  // Firebase automatically persists sessions — this listener fires on every auth change
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
@@ -70,12 +69,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const name = parts[0] || firebaseUser.email?.split('@')[0] || 'User';
         const role = (parts[1] as 'investor' | 'startup') || 'investor';
 
-        setUser({
-          id: firebaseUser.uid,
-          email: firebaseUser.email ?? '',
-          name,
-          role,
-          createdAt: firebaseUser.metadata.creationTime ?? new Date().toISOString(),
+        setUser((prevUser) => {
+          // Prevent race condition: if we just signed up, displayName might be null until updateProfile finishes
+          if (prevUser && prevUser.id === firebaseUser.uid && parts.length === 1) {
+            return prevUser;
+          }
+          return {
+            id: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            name,
+            role,
+            createdAt: firebaseUser.metadata.creationTime ?? new Date().toISOString(),
+          };
         });
       } else {
         setUser(null);
@@ -96,7 +101,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Parse stored name/role from displayName
       const parts = (firebaseUser.displayName ?? '').split('|');
       const name = parts[0] || email.split('@')[0];
-      const storedRole = (parts[1] as 'investor' | 'startup') || role;
+      const storedRole = (parts[1] as 'investor' | 'startup') || 'investor';
+
+      // Ensure user logs into correctly typed layout
+      if (storedRole !== role) {
+        await signOut(auth);
+        throw new Error(`Account type mismatch. Please log in as ${storedRole.toUpperCase()}`);
+      }
 
       setUser({
         id: firebaseUser.uid,
@@ -106,7 +117,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         createdAt: firebaseUser.metadata.creationTime ?? new Date().toISOString(),
       });
     } catch (err) {
-      const msg = firebaseErrorMessage(err);
+      let msg = firebaseErrorMessage(err);
+      if (err instanceof Error && err.message.includes('Account type mismatch')) {
+        msg = err.message;
+      }
       setError(msg);
       throw new Error(msg);
     } finally {
@@ -131,13 +145,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: `${name.trim()}|${role}`,
       });
 
-      setUser({
+      const newUser = {
         id: firebaseUser.uid,
         email: firebaseUser.email ?? email,
         name: name.trim(),
         role,
         createdAt: new Date().toISOString(),
-      });
+      };
+
+      // Set state locally
+      setUser(newUser);
+
+      // Tell our Express API to sync to Mongo Atlas
+      try {
+        await fetch('http://localhost:5000/api/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser),
+        });
+      } catch (e) {
+        console.warn("Failed to sync to MongoDB, but Firebase account was created.");
+      }
     } catch (err) {
       const msg = firebaseErrorMessage(err);
       setError(msg);

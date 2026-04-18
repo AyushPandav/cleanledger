@@ -14,10 +14,7 @@ export default function Index() {
     );
   }
 
-  // Redirect based on auth state
-  if (user) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  return <Redirect href="/(auth)" />;
+  if (!user) return <Redirect href="/(auth)" />;
+  if (user.role === 'investor') return <Redirect href="/(investor)" />;
+  return <Redirect href="/(startup)" />;
 }

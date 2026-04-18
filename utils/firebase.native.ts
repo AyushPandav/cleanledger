@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBkUGWKJtoUf8jn3j6efv1PreqGqiY_aUc',
@@ -14,8 +15,10 @@ const firebaseConfig = {
 // Prevent re-initializing on hot reload
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Use default Web persistence (IndexedDB/LocalStorage) automatically 
-const auth = getAuth(app);
+// Warning fix: Provide AsyncStorage so Firebase can persist state strictly on Native
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
 
 export { app, auth };
 export default app;

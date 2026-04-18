@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, fontSize, borderRadius } from '../constants/theme';
-import { Badge, ProgressBar, Card } from '../components/ui';
+import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
+import { Badge, ProgressBar, Card } from '../../components/ui';
 
 interface Investment {
   id: string;
@@ -25,11 +25,21 @@ export default function PortfolioScreen() {
   const totalGain = totalValue - totalInvested;
   const gainPercentage = ((totalGain / totalInvested) * 100).toFixed(1);
 
-  const portfolioData = [
+  const growthData = [
+    { month: 'Jan', val: 100 },
+    { month: 'Feb', val: 110 },
+    { month: 'Mar', val: 105 },
+    { month: 'Apr', val: 130 },
+    { month: 'May', val: 150 },
+    { month: 'Jun', val: 162 },
+  ];
+  const maxVal = 162;
+
+  const allocation = [
     { name: 'NexaHealth', percentage: 45, color: colors.black },
     { name: 'Kredifi', percentage: 35, color: colors.green },
-    { name: 'FlowLearn', percentage: 15, color: colors.grayBadge },
-    { name: 'Others', percentage: 5, color: colors.borderLight },
+    { name: 'FlowLearn', percentage: 15, color: '#94A3B8' },
+    { name: 'Others', percentage: 5, color: '#E2E8F0' },
   ];
 
   return (
@@ -60,23 +70,55 @@ export default function PortfolioScreen() {
           </View>
         </View>
 
-        {/* Allocation */}
+        {/* Growth Line Chart */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Portfolio Growth</Text>
+          <View style={styles.chartCard}>
+            <LineChart
+              data={{
+                labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+                datasets: [{ data: [100, 110, 105, 130, 150, 162.5] }]
+              }}
+              width={Dimensions.get('window').width - spacing.lg * 2 - spacing.lg * 2} // Screen width minus padding
+              height={220}
+              yAxisLabel="₹"
+              yAxisSuffix="K"
+              yAxisInterval={1}
+              chartConfig={{
+                backgroundColor: colors.white,
+                backgroundGradientFrom: colors.white,
+                backgroundGradientTo: colors.white,
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+                labelColor: (opacity = 1) => colors.grayDark,
+                style: { borderRadius: 16 },
+                propsForDots: { r: "5", strokeWidth: "2", stroke: colors.green }
+              }}
+              bezier
+              style={{ marginVertical: 8, borderRadius: 16 }}
+            />
+          </View>
+        </View>
+
+        {/* Allocation Pie Chart */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Allocation</Text>
-          <View style={styles.portfolioBar}>
-            <View style={[styles.portfolioSegment, { width: '45%', backgroundColor: colors.black }]} />
-            <View style={[styles.portfolioSegment, { width: '35%', backgroundColor: colors.green }]} />
-            <View style={[styles.portfolioSegment, { width: '15%', backgroundColor: colors.grayBadge }]} />
-            <View style={[styles.portfolioSegment, { width: '5%', backgroundColor: colors.borderLight }]} />
-          </View>
-          <View style={styles.legendContainer}>
-            {portfolioData.map((item) => (
-              <View key={item.name} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-                <Text style={styles.legendLabel}>{item.name}</Text>
-                <Text style={styles.legendPercentage}>{item.percentage}%</Text>
-              </View>
-            ))}
+          <View style={styles.chartCard}>
+            <PieChart
+              data={[
+                { name: 'NexaHealth', percentage: 45, color: colors.black, legendFontColor: colors.textSecondary, legendFontSize: 13 },
+                { name: 'Kredifi', percentage: 35, color: colors.green, legendFontColor: colors.textSecondary, legendFontSize: 13 },
+                { name: 'FlowLearn', percentage: 15, color: '#94A3B8', legendFontColor: colors.textSecondary, legendFontSize: 13 },
+                { name: 'Others', percentage: 5, color: '#E2E8F0', legendFontColor: colors.textSecondary, legendFontSize: 13 },
+              ]}
+              width={Dimensions.get('window').width - spacing.lg * 2 - spacing.lg * 2}
+              height={200}
+              chartConfig={{ color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})` }}
+              accessor="percentage"
+              backgroundColor="transparent"
+              paddingLeft="0"
+              absolute
+            />
           </View>
         </View>
 
@@ -185,40 +227,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  portfolioBar: {
-    height: 10,
-    borderRadius: borderRadius.sm,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    marginBottom: spacing.md,
-    backgroundColor: colors.borderLight,
-  },
-  portfolioSegment: {
-    flex: 1,
-  },
-  legendContainer: {
-    gap: spacing.sm,
-  },
-  legendItem: {
-    flexDirection: 'row',
+  chartCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendLabel: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  legendPercentage: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.text,
   },
   investmentCard: {
     backgroundColor: colors.white,

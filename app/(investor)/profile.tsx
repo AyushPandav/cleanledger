@@ -48,6 +48,15 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        <Text style={styles.sectionHeading}>AI TOOLS</Text>
+        <View style={styles.list}>
+          <TouchableOpacity style={styles.listItem} onPress={() => router.push('/compare')}>
+            <MaterialCommunityIcons name="robot-outline" size={24} color={colors.green} />
+            <Text style={styles.listText}>Compare Startups (Mistral AI)</Text>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
@@ -104,6 +113,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLighter,
   },
   listText: { flex: 1, marginLeft: spacing.md, fontSize: fontSize.base, color: colors.text },
+  sectionHeading: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: '700', marginLeft: spacing.md, marginBottom: spacing.sm, marginTop: spacing.md, letterSpacing: 1 },
   logoutButton: {
     backgroundColor: colors.white,
     borderWidth: 1,

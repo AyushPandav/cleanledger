@@ -1,15 +1,15 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# ─── Dependencies ─────────────────────────────────────────────────────────────
 node_modules/
 
-# Expo
+# ─── Expo ─────────────────────────────────────────────────────────────────────
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# ─── Native Build Outputs ─────────────────────────────────────────────────────
 .kotlin/
 *.orig.*
 *.jks
@@ -17,27 +17,58 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+/ios
+/android
 
-# Metro
+# ─── Metro Bundler ────────────────────────────────────────────────────────────
 .metro-health-check*
 
-# debug
+# ─── Debug Logs ───────────────────────────────────────────────────────────────
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+logs/
 
-# macOS
-.DS_Store
-*.pem
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
 
-# local env files
-.env*.local
-
-# typescript
+# ─── TypeScript ───────────────────────────────────────────────────────────────
 *.tsbuildinfo
 
-app-example
+# ─── OS Artifacts ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.pem
 
-# generated native folders
-/ios
-/android
+# ─── Editor & IDE ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# ─── Python AI Backend (ai_backend/) ──────────────────────────────────────────
+ai_backend/venv/
+ai_backend/__pycache__/
+ai_backend/*.pyc
+ai_backend/*.pyo
+ai_backend/*.pyd
+ai_backend/.Python
+ai_backend/*.egg-info/
+ai_backend/dist/
+ai_backend/build/
+ai_backend/.pytest_cache/
+ai_backend/.mypy_cache/
+ai_backend/htmlcov/
+ai_backend/.coverage
+
+# ─── Miscellaneous ────────────────────────────────────────────────────────────
+app-example
+*.bak
+*.tmp
+.cache/

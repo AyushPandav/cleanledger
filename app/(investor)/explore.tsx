@@ -1,27 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import {
+  View, Text, StyleSheet, TouchableOpacity, FlatList,
+  TextInput, ScrollView, Platform, ActivityIndicator
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
-import { Badge, ProgressBar } from '../../components/ui';
+import { Badge } from '../../components/ui';
 import { API_HOST_NODE } from '../../context/AuthContext';
 
-const filters = ['All', 'FinTech', 'HealthTech', 'EdTech', 'AgriTech', 'AI/ML', 'Low Risk'];
+const FILTERS = ['All', 'FinTech', 'HealthTech', 'EdTech', 'AgriTech', 'AI/ML', 'Low Risk', 'Verified'];
 
-// Helper to determine badge color from risk string
-const getRiskColor = (riskStr: string) => {
-  const r = riskStr?.toLowerCase() || '';
-  if (r.includes('low')) return 'low';
-  if (r.includes('med')) return 'med';
+const INDUSTRY_COLORS: Record<string, string> = {
+  FinTech: '#6366F1', HealthTech: '#10B981', EdTech: '#0EA5E9',
+  AgriTech: '#22C55E', 'AI/ML': '#8B5CF6', Logistics: '#F59E0B',
+  SaaS: '#EC4899', Other: '#64748B',
+};
+const getRiskVariant = (r: string): 'low' | 'med' | 'high' => {
+  const s = r?.toLowerCase() || '';
+  if (s.includes('low')) return 'low';
+  if (s.includes('med')) return 'med';
   return 'high';
 };
-
-// Helper for UI colors per dynamic item
-const getColorForIndex = (index: number) => {
-  const c = [colors.black, '#4F46E5', colors.green, '#E11D48', '#0EA5E9', '#10B981'];
-  return c[index % c.length];
-};
+const getIndustryColor = (industry: string) => INDUSTRY_COLORS[industry] || '#64748B';
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -32,230 +34,301 @@ export default function ExploreScreen() {
 
   useEffect(() => {
     fetch(`${API_HOST_NODE}/api/startups`)
-      .then(res => res.json())
+      .then(r => r.json())
       .then(data => {
         if (data.success && data.startups) {
-          // The API already sorts by trust score descending!
-          // We just need to map them to inject ranking and colors.
-          const mapped = data.startups.map((s: any, idx: number) => ({
+          setStartups(data.startups.map((s: any, idx: number) => ({
             ...s,
             rank: idx + 1,
-            color: getColorForIndex(idx),
-            risk: getRiskColor(s.aiRiskLevel)
-          }));
-          setStartups(mapped);
+            accentColor: getIndustryColor(s.industry),
+            risk: getRiskVariant(s.aiRiskLevel),
+          })));
         }
       })
-      .catch(err => console.log('Explore fetch Error:', err))
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = startups.filter((s) => {
-    const matchSearch = (s.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (s.industry || '').toLowerCase().includes(search.toLowerCase());
-
+  const filtered = startups.filter(s => {
+    const q = search.toLowerCase();
+    const matchSearch = (s.name || '').toLowerCase().includes(q) ||
+      (s.industry || '').toLowerCase().includes(q);
     if (activeFilter === 'All') return matchSearch;
     if (activeFilter === 'Low Risk') return matchSearch && s.risk === 'low';
+    if (activeFilter === 'Verified') return matchSearch && (s.businessRegistered || s.kycCompleted);
     return matchSearch && s.industry === activeFilter;
   });
 
-  const handleSearch = (text: string) => {
-    setSearch(text);
-    if (text.length > 0 && activeFilter !== 'All') {
-      setActiveFilter('All');
-    }
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.green} />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Explore</Text>
-          <Text style={styles.headerSub}>Discover {filtered.length} trending startups</Text>
+          <Text style={styles.headerSub}>{filtered.length} startups ranked by AI</Text>
         </View>
-        <TouchableOpacity style={styles.filterBtn}>
-          <MaterialCommunityIcons name="blur" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerIcon}>
+          <MaterialCommunityIcons name="chart-timeline-variant" size={20} color={colors.green} />
+        </View>
       </View>
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchRow}>
-          <MaterialCommunityIcons name="magnify" size={20} color={colors.grayDark} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
-            placeholder="Search startups, industries..."
-            placeholderTextColor={colors.grayDark}
-            value={search}
-            onChangeText={handleSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <MaterialCommunityIcons name="close-circle" size={18} color={colors.grayDark} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Filters */}
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterContent}>
-          {filters.map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.chip, activeFilter === f && styles.chipActive]}
-              onPress={() => setActiveFilter(f)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* List */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id || Math.random().toString()}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <MaterialCommunityIcons name="magnify" size={48} color={colors.grayBadge} />
-            <Text style={styles.emptyText}>No startups found matching your criteria</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => router.push('/detail')} activeOpacity={0.95}>
-            <View style={[styles.cardBanner, { backgroundColor: item.color }]} />
-
-            <View style={styles.cardBody}>
-              <View style={styles.cardTopRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>
-                  <View style={[styles.avatar, { backgroundColor: item.color }]}>
-                    <Text style={styles.avatarText}>{item.name ? item.name.charAt(0) : 'U'}</Text>
-                  </View>
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankText}>#{item.rank}</Text>
-                  </View>
-                  {item.businessRegistered && item.kycCompleted ? (
-                    <View style={[styles.rankBadge, { backgroundColor: colors.green, borderColor: colors.green }]}>
-                      <Text style={[styles.rankText, { color: colors.white }]}>Fully Verified</Text>
-                    </View>
-                  ) : item.businessRegistered || item.kycCompleted ? (
-                    <View style={[styles.rankBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
-                      <Text style={[styles.rankText, { color: '#B45309' }]}>Partially Verified</Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.rankBadge, { backgroundColor: '#FEE2E2', borderColor: '#EF4444' }]}>
-                      <Text style={[styles.rankText, { color: '#B91C1C' }]}>Not Verified</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={{ marginTop: 12, alignItems: 'flex-end', gap: 4 }}>
-                  <Badge variant={item.risk}>{item.risk === 'low' ? 'Low Risk' : item.risk === 'med' ? 'Med Risk' : 'High Risk'}</Badge>
-                  <Text style={styles.trustScore}>🤖 Trust {item.aiTrustScore || 0}/100</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardName}>{item.name}</Text>
-                <Text style={styles.cardMeta}>{item.industry}  •  {item.stage || 'Startup'}</Text>
-              </View>
-
-              <View style={styles.progressSection}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.goalText}>Raising: <Text style={styles.goalAmount}>₹{item.fundingGoal}</Text></Text>
-                  <Text style={[styles.pct, { color: item.color }]}>{item.profileCompletionScore}% setup</Text>
-                </View>
-                <ProgressBar progress={item.profileCompletionScore || 0} height={6} style={styles.bar} />
-              </View>
-            </View>
+        <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" style={{ marginRight: 8 }} />
+        <TextInput
+          style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
+          placeholder="Search startups, industries…"
+          placeholderTextColor="#94A3B8"
+          value={search}
+          onChangeText={t => { setSearch(t); if (t && activeFilter !== 'All') setActiveFilter('All'); }}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
           </TouchableOpacity>
         )}
-      />
+      </View>
+
+      {/* Filter chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={styles.filterBar} contentContainerStyle={styles.filterContent}>
+        {FILTERS.map(f => (
+          <TouchableOpacity key={f}
+            style={[styles.chip, activeFilter === f && styles.chipActive]}
+            onPress={() => setActiveFilter(f)} activeOpacity={0.7}>
+            <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* List */}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.green} />
+          <Text style={styles.loadingText}>Ranking startups by AI…</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id || item._id || Math.random().toString()}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="telescope" size={56} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>No results found</Text>
+              <Text style={styles.emptySubtitle}>Try a different search or filter</Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const isVerified = item.businessRegistered && item.kycCompleted;
+            const isPartialVerified = item.businessRegistered || item.kycCompleted;
+            const trust = item.aiTrustScore || 0;
+            const trustColor = trust >= 70 ? '#10B981' : trust >= 40 ? '#F59E0B' : '#EF4444';
+
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => router.push({ pathname: '/detail', params: { id: item.id || item._id } })}
+                activeOpacity={0.93}
+              >
+                {/* Colored top strip */}
+                <View style={[styles.cardStrip, { backgroundColor: item.accentColor }]} />
+
+                <View style={styles.cardContent}>
+                  {/* Avatar + Rank row */}
+                  <View style={styles.cardHeader}>
+                    <View style={[styles.avatar, { backgroundColor: item.accentColor }]}>
+                      <Text style={styles.avatarText}>{item.name?.charAt(0) || 'S'}</Text>
+                    </View>
+
+                    <View style={styles.cardHeaderMid}>
+                      <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.cardMeta}>{item.industry || 'Unknown'}  ·  {item.stage || 'Early Stage'}</Text>
+                    </View>
+
+                    <View style={styles.rankPill}>
+                      <Text style={styles.rankText}>#{item.rank}</Text>
+                    </View>
+                  </View>
+
+                  {/* Tags row */}
+                  <View style={styles.tagsRow}>
+                    <Badge variant={item.risk}>
+                      {item.risk === 'low' ? 'Low Risk' : item.risk === 'med' ? 'Med Risk' : 'High Risk'}
+                    </Badge>
+
+                    {isVerified ? (
+                      <View style={styles.verifyBadge}>
+                        <MaterialCommunityIcons name="shield-check" size={12} color="#10B981" />
+                        <Text style={[styles.verifyText, { color: '#10B981' }]}>Fully Verified</Text>
+                      </View>
+                    ) : isPartialVerified ? (
+                      <View style={[styles.verifyBadge, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+                        <MaterialCommunityIcons name="shield-half-full" size={12} color="#D97706" />
+                        <Text style={[styles.verifyText, { color: '#D97706' }]}>Partial</Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.verifyBadge, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                        <MaterialCommunityIcons name="shield-off-outline" size={12} color="#DC2626" />
+                        <Text style={[styles.verifyText, { color: '#DC2626' }]}>Unverified</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Stats row */}
+                  <View style={styles.statsRow}>
+                    {/* Trust score */}
+                    <View style={styles.statBox}>
+                      <View style={styles.statLabelRow}>
+                        <MaterialCommunityIcons name="robot-outline" size={12} color="#94A3B8" />
+                        <Text style={styles.statLabel}>AI Trust</Text>
+                      </View>
+                      <Text style={[styles.statValue, { color: trustColor }]}>{trust}<Text style={styles.statUnit}>/100</Text></Text>
+                    </View>
+
+                    {/* Funding goal */}
+                    <View style={[styles.statBox, styles.statBoxMid]}>
+                      <View style={styles.statLabelRow}>
+                        <MaterialCommunityIcons name="currency-inr" size={12} color="#94A3B8" />
+                        <Text style={styles.statLabel}>Goal</Text>
+                      </View>
+                      <Text style={styles.statValue}>
+                        {item.fundingGoal ? `₹${(item.fundingGoal / 100000).toFixed(1)}L` : 'N/A'}
+                      </Text>
+                    </View>
+
+                    {/* Completion */}
+                    <View style={styles.statBox}>
+                      <View style={styles.statLabelRow}>
+                        <MaterialCommunityIcons name="progress-check" size={12} color="#94A3B8" />
+                        <Text style={styles.statLabel}>Profile</Text>
+                      </View>
+                      <Text style={styles.statValue}>{item.profileCompletionScore || 0}<Text style={styles.statUnit}>%</Text></Text>
+                    </View>
+                  </View>
+
+                  {/* Progress bar */}
+                  <View style={styles.progressBg}>
+                    <View style={[styles.progressFill, {
+                      width: `${Math.min(item.profileCompletionScore || 0, 100)}%` as any,
+                      backgroundColor: item.accentColor,
+                    }]} />
+                  </View>
+
+                  {/* Tap hint */}
+                  <View style={styles.tapHint}>
+                    <Text style={styles.tapHintText}>View full profile</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#F1F5F9' },
+
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.lg,
-    backgroundColor: '#F8F9FA',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm,
+    backgroundColor: '#F1F5F9',
   },
-  headerTitle: { fontSize: 32, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
-  headerSub: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 4, fontWeight: '500' },
-  filterBtn: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white,
+  headerTitle: { fontSize: 30, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 },
+  headerSub: { fontSize: fontSize.sm, color: '#64748B', marginTop: 2, fontWeight: '500' },
+  headerIcon: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: colors.white, borderWidth: 1, borderColor: '#E2E8F0',
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  searchContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.white, borderRadius: 14,
+    marginHorizontal: spacing.lg, marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    borderWidth: 1, borderColor: '#E2E8F0',
     ...Platform.select({
-      ios: { shadowColor: colors.black, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
       android: { elevation: 2 },
-      web: { boxShadow: '0 4px 8px rgba(0,0,0,0.05)' }
     }),
   },
-  searchContainer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white,
-    borderRadius: borderRadius.full, paddingHorizontal: spacing.md,
-    borderWidth: 1, borderColor: colors.border, height: 48,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: fontSize.base, color: colors.text, height: '100%' },
-  clearBtn: { padding: 4 },
+  searchInput: { flex: 1, fontSize: fontSize.base, color: '#0F172A' },
+
   filterBar: { flexGrow: 0, marginBottom: spacing.md },
-  filterContent: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: 4 },
+  filterContent: { paddingHorizontal: spacing.lg, gap: 8, paddingBottom: 2 },
   chip: {
-    paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: borderRadius.full,
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: colors.white, borderWidth: 1, borderColor: '#E2E8F0',
   },
-  chipActive: { backgroundColor: colors.black, borderColor: colors.black },
-  chipText: { fontSize: fontSize.sm, fontWeight: '600', color: colors.textSecondary },
+  chipActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
   chipTextActive: { color: colors.white },
-  list: { padding: spacing.lg, paddingBottom: 100, gap: spacing.lg },
+
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: fontSize.sm, color: '#94A3B8' },
+
+  list: { paddingHorizontal: spacing.lg, paddingBottom: 110, gap: 14 },
+
+  emptyState: { paddingTop: 60, alignItems: 'center', gap: 12 },
+  emptyTitle: { fontSize: fontSize.xl, fontWeight: '700', color: '#334155' },
+  emptySubtitle: { fontSize: fontSize.sm, color: '#94A3B8' },
+
   card: {
-    backgroundColor: colors.white, borderRadius: borderRadius.xl,
-    overflow: 'hidden', borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.white, borderRadius: 20, overflow: 'hidden',
+    borderWidth: 1, borderColor: '#E2E8F0',
     ...Platform.select({
-      ios: { shadowColor: colors.black, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.04, shadowRadius: 16 },
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
       android: { elevation: 3 },
-      web: { boxShadow: '0 8px 16px rgba(0,0,0,0.04)' }
     }),
   },
-  cardBanner: { height: 8, width: '100%' },
-  cardBody: { padding: spacing.lg },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
+  cardStrip: { height: 4 },
+  cardContent: { padding: 16, gap: 12 },
+
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
-    width: 64, height: 64, borderRadius: 16,
+    width: 48, height: 48, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
-    transform: [{ translateY: -20 }], marginBottom: -20,
-    borderWidth: 3, borderColor: colors.white,
   },
-  avatarText: { fontSize: 28, fontWeight: '800', color: colors.white },
-  rankBadge: { backgroundColor: colors.background, paddingHorizontal: 8, paddingVertical: 4, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: colors.border },
-  rankText: { fontSize: fontSize.xs, fontWeight: '700', color: colors.text },
-  trustScore: { fontSize: fontSize.sm, fontWeight: '700', color: colors.green },
-  cardInfo: { marginBottom: spacing.lg },
-  cardName: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text, marginBottom: 4 },
-  cardMeta: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: '500' },
-  progressSection: { backgroundColor: '#F8F9FA', padding: spacing.md, borderRadius: borderRadius.md },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: spacing.sm },
-  goalText: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: '500' },
-  goalAmount: { fontSize: fontSize.base, color: colors.text, fontWeight: '700', marginLeft: 4 },
-  pct: { fontSize: fontSize.sm, fontWeight: '700' },
-  bar: { backgroundColor: '#E5E7EB' },
-  empty: { padding: spacing.xl, alignItems: 'center', marginTop: 40 },
-  emptyText: { marginTop: spacing.md, fontSize: fontSize.base, color: colors.grayDark, textAlign: 'center' },
+  avatarText: { fontSize: 22, fontWeight: '800', color: colors.white },
+  cardHeaderMid: { flex: 1 },
+  cardName: { fontSize: 16, fontWeight: '700', color: '#0F172A', letterSpacing: -0.2 },
+  cardMeta: { fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500' },
+  rankPill: {
+    backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  rankText: { fontSize: 12, fontWeight: '800', color: '#334155' },
+
+  tagsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  verifyBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+  },
+  verifyText: { fontSize: 11, fontWeight: '700' },
+
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statBox: {
+    flex: 1, backgroundColor: '#F8FAFC', borderRadius: 12,
+    padding: 10, borderWidth: 1, borderColor: '#F1F5F9',
+  },
+  statBoxMid: { borderLeftWidth: 0, borderRightWidth: 0 },
+  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 },
+  statLabel: { fontSize: 10, color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
+  statValue: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  statUnit: { fontSize: 11, fontWeight: '600', color: '#94A3B8' },
+
+  progressBg: { height: 4, backgroundColor: '#F1F5F9', borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: 4, borderRadius: 2 },
+
+  tapHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2, marginTop: -4 },
+  tapHintText: { fontSize: 11, color: '#94A3B8', fontWeight: '500' },
 });

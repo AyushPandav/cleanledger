@@ -53,6 +53,15 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+const investmentSchema = new mongoose.Schema({
+  investorId: { type: String, required: true }, // references the user.id
+  startupId: { type: String, required: true }, // references the user.id of startup
+  amountInvested: { type: Number, required: true },
+  milestonePaymentStatus: { type: String, default: 'Pending Escrow Release' },
+  createdAt: { type: Date, default: Date.now }
+});
+const Investment = mongoose.model('Investment', investmentSchema);
+
 // ── Create user on signup ────────────────────────────────────────────────────
 app.post('/api/user', async (req, res) => {
   try {
@@ -142,6 +151,50 @@ app.get('/api/startups', async (req, res) => {
   }
 });
 
+// ── Get all investments for an investor ─────────────────────────────────────
+app.get('/api/investments/:investorId', async (req, res) => {
+  try {
+    const investments = await Investment.find({ investorId: req.params.investorId })
+      .sort({ createdAt: -1 });
+
+    // Enrich with startup profile data
+    const enriched = await Promise.all(investments.map(async (inv) => {
+      const startup = await User.findOne({ id: inv.startupId });
+      return {
+        ...inv.toObject(),
+        startupName: startup?.name || 'Unknown Startup',
+        startupIndustry: startup?.industry || 'Unknown',
+        startupStage: startup?.stage || 'Startup',
+        startupTrustScore: startup?.aiTrustScore || 0,
+        startupRiskLevel: startup?.aiRiskLevel || 'Unknown',
+        startupMilestones: startup?.milestones || [],
+        startupCompletionScore: startup?.profileCompletionScore || 0,
+      };
+    }));
+
+    res.json({ success: true, investments: enriched });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Create investment (investor sends money to a startup) ────────────────────
+app.post('/api/investments', async (req, res) => {
+  try {
+    const { investorId, startupId, amountInvested } = req.body;
+    if (!investorId || !startupId || !amountInvested) {
+      return res.status(400).json({ error: 'investorId, startupId and amountInvested are required' });
+    }
+    const inv = new Investment({ investorId, startupId, amountInvested });
+    await inv.save();
+    res.json({ success: true, investment: inv });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = 5000;
+
 // ── Toggle Community ─────────────────────────────────────────────────────────────
 app.put('/api/user/:id/community', async (req, res) => {
   try {
@@ -157,6 +210,5 @@ app.put('/api/user/:id/community', async (req, res) => {
   }
 });
 
-const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`\n\n🟢 Express Server running on port ${PORT} (0.0.0.0)`));
 

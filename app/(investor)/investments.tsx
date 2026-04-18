@@ -1,43 +1,83 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
 import { Badge, ProgressBar } from '../../components/ui';
+import { API_HOST_NODE } from '../../context/AuthContext';
 
-const myInvestments = [
-  {
-    id: '1', initials: 'NX', name: 'NexaHealth', industry: 'HealthTech',
-    amountInvested: 15000, currentValue: 16800, progress: 72, risk: 'low' as const,
-    color: colors.black, milestone: 'Clinical Trial (In Progress)', milestoneNum: 2, milestoneTotal: 4,
-    date: 'Mar 2025',
-  },
-  {
-    id: '2', initials: 'KR', name: 'Kredifi', industry: 'FinTech',
-    amountInvested: 25000, currentValue: 29500, progress: 88, risk: 'low' as const,
-    color: colors.green, milestone: 'Series A Closed', milestoneNum: 3, milestoneTotal: 3,
-    date: 'Jan 2025',
-  },
-  {
-    id: '3', initials: 'FL', name: 'FlowLearn', industry: 'EdTech',
-    amountInvested: 10000, currentValue: 9200, progress: 45, risk: 'med' as const,
-    color: colors.grayDark, milestone: 'Beta Launch Pending', milestoneNum: 1, milestoneTotal: 3,
-    date: 'Feb 2025',
-  },
-];
+// Helper for UI colors per dynamic item
+const getColorForIndex = (index: number) => {
+  const c = [colors.black, '#4F46E5', colors.green, '#E11D48', '#0EA5E9', '#10B981'];
+  return c[index % c.length];
+};
+
+const getRiskColor = (riskStr: string) => {
+  const r = riskStr?.toLowerCase() || '';
+  if (r.includes('low')) return 'low';
+  if (r.includes('med')) return 'med';
+  return 'high';
+};
 
 export default function InvestmentsScreen() {
   const router = useRouter();
-  const totalInvested = myInvestments.reduce((s, i) => s + i.amountInvested, 0);
-  const totalCurrent = myInvestments.reduce((s, i) => s + i.currentValue, 0);
+  const [investments, setInvestments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_HOST_NODE}/api/startups`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.startups) {
+          // Mock investments from the real dynamic startups!
+          // Give them some fake returns and investment state for visualization.
+          const dynamicStartups = data.startups.slice(0, 3).map((s: any, i: number) => {
+            const amountInvested = 10000 * (i + 1);
+            const growth = 1.0 + (s.aiTrustScore / 100);
+            const currentValue = amountInvested * growth;
+            return {
+              id: s.id,
+              initials: s.name ? s.name.charAt(0) : 'U',
+              name: s.name,
+              industry: s.industry,
+              amountInvested,
+              currentValue,
+              progress: s.profileCompletionScore,
+              risk: getRiskColor(s.aiRiskLevel),
+              color: getColorForIndex(i),
+              businessRegistered: s.businessRegistered,
+              kycCompleted: s.kycCompleted,
+              milestone: s.milestones?.[0]?.title || 'Development',
+              milestoneNum: 1,
+              milestoneTotal: Math.max(s.milestones?.length || 1, 3),
+              date: new Date(s.createdAt || Date.now()).toLocaleDateString()
+            };
+          });
+          setInvestments(dynamicStartups);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalInvested = investments.reduce((s, i) => s + i.amountInvested, 0);
+  const totalCurrent = investments.reduce((s, i) => s + i.currentValue, 0);
   const gain = totalCurrent - totalInvested;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.green} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Investments</Text>
-        <Badge variant="low">{myInvestments.length} Active</Badge>
+        <Badge variant="low">{`${investments.length} Active`}</Badge>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -65,11 +105,14 @@ export default function InvestmentsScreen() {
 
         {/* Investments */}
         <Text style={styles.sectionTitle}>Your Investments</Text>
-        {myInvestments.map((inv) => {
+        {investments.length === 0 ? (
+          <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 20 }}>No investments mapped yet.</Text>
+        ) : investments.map((inv, idx) => {
           const returnPct = (((inv.currentValue - inv.amountInvested) / inv.amountInvested) * 100).toFixed(1);
           const isPositive = inv.currentValue >= inv.amountInvested;
+          const uniqueKey = inv.id || inv._id || `inv-${idx}`;
           return (
-            <TouchableOpacity key={inv.id} style={styles.card} onPress={() => router.push('/detail')}>
+            <TouchableOpacity key={uniqueKey} style={styles.card} onPress={() => router.push('/detail')}>
               <View style={styles.cardTop}>
                 <View style={[styles.avatar, { backgroundColor: inv.color }]}>
                   <Text style={styles.avatarText}>{inv.initials}</Text>
@@ -77,6 +120,13 @@ export default function InvestmentsScreen() {
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{inv.name}</Text>
                   <Text style={styles.cardMeta}>{inv.industry} · Invested {inv.date}</Text>
+                  {inv.businessRegistered && inv.kycCompleted ? (
+                    <Text style={{ fontSize: 12, color: colors.green, marginTop: 4, fontWeight: '700' }}>Fully Verified</Text>
+                  ) : inv.businessRegistered || inv.kycCompleted ? (
+                    <Text style={{ fontSize: 12, color: '#F59E0B', marginTop: 4, fontWeight: '700' }}>Partially Verified</Text>
+                  ) : (
+                    <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4, fontWeight: '700' }}>Not Verified</Text>
+                  )}
                 </View>
                 <View style={styles.cardRight}>
                   <Text style={[styles.returnPct, { color: isPositive ? colors.green : colors.red }]}>
@@ -100,8 +150,8 @@ export default function InvestmentsScreen() {
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.amountLabel}>Funding Goal</Text>
-                  <Text style={styles.amountValue}>{inv.progress}% reached</Text>
+                  <Text style={styles.amountLabel}>Profile Goal</Text>
+                  <Text style={styles.amountValue}>{inv.progress}% setup</Text>
                 </View>
               </View>
 
@@ -127,7 +177,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerTitle: { fontSize: fontSize.heading, fontWeight: '700', color: colors.text },
-  content: { padding: spacing.lg, gap: spacing.md },
+  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 100 },
   summaryCard: {
     backgroundColor: colors.white, borderRadius: borderRadius.lg,
     padding: spacing.lg, borderWidth: 1, borderColor: colors.border,

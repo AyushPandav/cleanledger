@@ -37,8 +37,11 @@ export default function LoginScreen() {
 
     try {
       await login(email, password, selectedRole);
-      // The root layout will automatically redirect to (tabs) when user state changes
-      router.replace('/');
+      if (selectedRole === 'startup') {
+        router.replace('/(startup)');
+      } else {
+        router.replace('/(investor)');
+      }
     } catch (err) {
       // Error is set in context
     }

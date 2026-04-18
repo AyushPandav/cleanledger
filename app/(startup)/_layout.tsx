@@ -5,11 +5,12 @@ import { colors, fontSize } from '../../constants/theme';
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const tabs: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
-  { name: 'index',      title: 'Dashboard',   icon: 'view-dashboard-outline', activeIcon: 'view-dashboard' },
-  { name: 'mystartup',  title: 'My Startup',  icon: 'rocket-outline',         activeIcon: 'rocket' },
-  { name: 'fundusage',  title: 'Funds',       icon: 'cash-multiple',          activeIcon: 'cash-multiple' },
-  { name: 'milestones', title: 'Milestones',  icon: 'flag-outline',           activeIcon: 'flag' },
-  { name: 'profile',    title: 'Profile',     icon: 'account-outline',        activeIcon: 'account' },
+  { name: 'index', title: 'Dashboard', icon: 'view-dashboard-outline', activeIcon: 'view-dashboard' },
+  { name: 'mystartup', title: 'My Startup', icon: 'rocket-outline', activeIcon: 'rocket' },
+  { name: 'fundusage', title: 'Funds', icon: 'cash-multiple', activeIcon: 'cash-multiple' },
+  { name: 'milestones', title: 'Milestones', icon: 'flag-outline', activeIcon: 'flag' },
+  { name: 'community', title: 'Community', icon: 'account-group-outline', activeIcon: 'account-group' },
+  { name: 'profile', title: 'Profile', icon: 'account-outline', activeIcon: 'account' },
 ];
 
 export default function StartupLayout() {
@@ -46,6 +47,8 @@ export default function StartupLayout() {
           }}
         />
       ))}
+      <Tabs.Screen name="create-profile" options={{ href: null }} />
+      <Tabs.Screen name="updates" options={{ href: null }} />
     </Tabs>
   );
 }

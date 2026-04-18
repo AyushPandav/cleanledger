@@ -5,11 +5,12 @@ import { colors, fontSize } from '../../constants/theme';
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const tabs: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
-  { name: 'index',       title: 'Home',        icon: 'home-outline',       activeIcon: 'home' },
-  { name: 'explore',     title: 'Explore',     icon: 'magnify',            activeIcon: 'magnify' },
-  { name: 'investments', title: 'Investments', icon: 'trending-up',        activeIcon: 'trending-up' },
-  { name: 'portfolio',   title: 'Portfolio',   icon: 'briefcase-outline',  activeIcon: 'briefcase' },
-  { name: 'profile',     title: 'Profile',     icon: 'account-outline',    activeIcon: 'account' },
+  { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
+  { name: 'explore', title: 'Explore', icon: 'magnify', activeIcon: 'magnify' },
+  { name: 'investments', title: 'Investments', icon: 'trending-up', activeIcon: 'trending-up' },
+  { name: 'portfolio', title: 'Portfolio', icon: 'briefcase-outline', activeIcon: 'briefcase' },
+  { name: 'community', title: 'Community', icon: 'account-group-outline', activeIcon: 'account-group' },
+  { name: 'profile', title: 'Profile', icon: 'account-outline', activeIcon: 'account' },
 ];
 
 export default function InvestorLayout() {
@@ -46,6 +47,7 @@ export default function InvestorLayout() {
           }}
         />
       ))}
+      <Tabs.Screen name="compare" options={{ href: null }} />
     </Tabs>
   );
 }

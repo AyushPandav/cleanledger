@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,8 +10,24 @@ export default function StartupProfileScreen() {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        await logout();
+        router.replace('/');
+      }
+    } else {
+      Alert.alert('Log out', 'Are you sure you want to log out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          },
+        },
+      ]);
+    }
   };
 
   return (
@@ -28,24 +43,6 @@ export default function StartupProfileScreen() {
           <Text style={styles.name}>{user?.name || 'Startup User'}</Text>
           <Text style={styles.email}>{user?.email}</Text>
           <Text style={styles.role}>{user?.role?.toUpperCase()}</Text>
-        </View>
-
-        <View style={styles.list}>
-           <TouchableOpacity style={styles.listItem}>
-            <MaterialCommunityIcons name="account-edit-outline" size={24} color={colors.text} />
-            <Text style={styles.listText}>Edit Profile</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-           <TouchableOpacity style={styles.listItem}>
-            <MaterialCommunityIcons name="bell-outline" size={24} color={colors.text} />
-            <Text style={styles.listText}>Notifications</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-           <TouchableOpacity style={styles.listItem}>
-            <MaterialCommunityIcons name="shield-lock-outline" size={24} color={colors.text} />
-            <Text style={styles.listText}>Security</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -111,6 +108,25 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.lg,
     alignItems: 'center',
+    marginTop: spacing.xl,
   },
-  logoutText: { color: colors.red, fontSize: fontSize.lg, fontWeight: '600' }
+  logoutText: { color: colors.red, fontSize: fontSize.lg, fontWeight: '600' },
+  infoBox: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.md
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLighter
+  },
+  infoLabel: { fontSize: fontSize.base, color: colors.textSecondary },
+  infoValue: { fontSize: fontSize.base, fontWeight: '600', color: colors.text }
 });

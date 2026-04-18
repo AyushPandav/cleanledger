@@ -5,9 +5,14 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
-  FirebaseError,
 } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { auth } from '../utils/firebase';
+import { Platform } from 'react-native';
+
+// Use the local Wi-Fi IPv4 address instead of 10.0.2.2 so it works on Physical Devices scanning Expo QR code
+export const API_HOST_NODE = Platform.OS === 'web' ? 'http://localhost:5000' : 'http://10.144.152.219:5000';
+export const API_HOST_PYTHON = Platform.OS === 'web' ? 'http://127.0.0.1:8000' : 'http://10.144.152.219:8000';
 
 export interface User {
   id: string;
@@ -30,8 +35,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Map Firebase error codes to friendly messages
-function firebaseErrorMessage(err: unknown): string {
-  if (err instanceof FirebaseError) {
+function firebaseErrorMessage(err: any): string {
+  if (err && err.code) {
     switch (err.code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
@@ -53,7 +58,7 @@ function firebaseErrorMessage(err: unknown): string {
         return err.message || 'Authentication failed.';
     }
   }
-  return 'An unexpected error occurred.';
+  return err instanceof Error ? err.message : 'An unexpected error occurred.';
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -64,21 +69,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Restore role from displayName metadata (we encode it as "Name|role")
+        const hasDisplayName = !!firebaseUser.displayName;
         const parts = (firebaseUser.displayName ?? '').split('|');
         const name = parts[0] || firebaseUser.email?.split('@')[0] || 'User';
         const role = (parts[1] as 'investor' | 'startup') || 'investor';
 
         setUser((prevUser) => {
-          // Prevent race condition: if we just signed up, displayName might be null until updateProfile finishes
-          if (prevUser && prevUser.id === firebaseUser.uid && parts.length === 1) {
-            return prevUser;
+          // During signup, createUserWithEmailAndPassword fires this listener IMMEDIATELY
+          // before updateProfile has injected the role into displayName.
+          // If we see a missing role, and prevUser exists, keep prevUser (set by signup!).
+          if (prevUser && prevUser.id === firebaseUser.uid) {
+            if (!hasDisplayName || parts.length < 2) {
+              return prevUser;
+            }
           }
+
           return {
             id: firebaseUser.uid,
             email: firebaseUser.email ?? '',
-            name,
-            role,
+            name: prevUser?.name && !hasDisplayName ? prevUser.name : name, // safety
+            role: prevUser?.role && !hasDisplayName ? prevUser.role : role, // safety override
             createdAt: firebaseUser.metadata.creationTime ?? new Date().toISOString(),
           };
         });
@@ -158,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Tell our Express API to sync to Mongo Atlas
       try {
-        await fetch('http://localhost:5000/api/user', {
+        await fetch(`${API_HOST_NODE}/api/user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newUser),

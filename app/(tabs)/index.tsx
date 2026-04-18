@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,18 +30,25 @@ export default function HomeScreen() {
   const router = useRouter();
   const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', onPress: () => {} },
-      {
-        text: 'Log out',
-        onPress: async () => {
-          await logout();
-          router.replace('/');
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        await logout();
+        router.replace('/');
+      }
+    } else {
+      Alert.alert('Log out', 'Are you sure you want to log out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          },
         },
-        style: 'destructive',
-      },
-    ]);
+      ]);
+    }
   };
 
 

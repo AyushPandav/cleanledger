@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,11 +23,25 @@ export default function InvestorHome() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure?', [
-      { text: 'Cancel' },
-      { text: 'Log out', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
-    ]);
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        await logout();
+        router.replace('/');
+      }
+    } else {
+      Alert.alert('Log out', 'Are you sure?', [
+        { text: 'Cancel' },
+        {
+          text: 'Log out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          },
+        },
+      ]);
+    }
   };
 
   return (

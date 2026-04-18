@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,8 +11,24 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        await logout();
+        router.replace('/');
+      }
+    } else {
+      Alert.alert('Log out', 'Are you sure you want to log out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          },
+        },
+      ]);
+    }
   };
 
   return (
@@ -31,17 +47,17 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.list}>
-           <TouchableOpacity style={styles.listItem}>
+          <TouchableOpacity style={styles.listItem}>
             <MaterialCommunityIcons name="account-edit-outline" size={24} color={colors.text} />
             <Text style={styles.listText}>Edit Profile</Text>
             <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-           <TouchableOpacity style={styles.listItem}>
+          <TouchableOpacity style={styles.listItem}>
             <MaterialCommunityIcons name="bell-outline" size={24} color={colors.text} />
             <Text style={styles.listText}>Notifications</Text>
             <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-           <TouchableOpacity style={styles.listItem}>
+          <TouchableOpacity style={styles.listItem}>
             <MaterialCommunityIcons name="shield-lock-outline" size={24} color={colors.text} />
             <Text style={styles.listText}>Security</Text>
             <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />

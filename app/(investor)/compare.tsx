@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
 import { useRouter } from 'expo-router';
 import { BarChart } from 'react-native-chart-kit';
+import { API_HOST_PYTHON } from '../../context/AuthContext';
 
 const startups = [
   { id: '1', name: 'NexaHealth', industry: 'HealthTech', stage: 'Seed', description: 'AI-driven health monitoring system. High R&D costs, strong potential market.', metrics: { risk: 75, trust: 80, growth: 90 } },
@@ -38,7 +39,7 @@ export default function CompareScreen() {
     const s2 = startups.find(s => s.id === selected[1]);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/compare', {
+      const res = await fetch(`${API_HOST_PYTHON}/api/compare`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,6 +58,11 @@ export default function CompareScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReset = () => {
+    setSelected([]);
+    setResult(null);
   };
 
   const s1 = startups.find(s => s.id === selected[0]);
@@ -151,6 +157,12 @@ export default function CompareScreen() {
                 </View>
               </View>
             </View>
+
+            {/* Compare Again Button */}
+            <TouchableOpacity style={styles.compareAgainBtn} onPress={handleReset}>
+              <MaterialCommunityIcons name="refresh" size={20} color={colors.white} />
+              <Text style={styles.compareBtnText}>Compare Again</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -182,5 +194,6 @@ const styles = StyleSheet.create({
   legendContainer: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg, marginTop: spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendColor: { width: 12, height: 12, borderRadius: 2 },
-  legendText: { fontSize: fontSize.sm, color: colors.textSecondary }
+  legendText: { fontSize: fontSize.sm, color: colors.textSecondary },
+  compareAgainBtn: { backgroundColor: colors.black, marginTop: spacing.xl, padding: spacing.lg, borderRadius: borderRadius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }
 });

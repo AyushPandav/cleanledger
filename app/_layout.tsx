@@ -1,11 +1,23 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { colors } from '../constants/theme';
 
+import { useEffect } from 'react';
+
 function RootLayoutNav() {
-  const { isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // When user becomes null (logout), force exactly to the auth page
+    if (!user) {
+      router.replace('/(auth)');
+    }
+  }, [user, isLoading]);
 
   if (isLoading) {
     return (

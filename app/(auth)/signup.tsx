@@ -50,8 +50,11 @@ export default function SignupScreen() {
 
     try {
       await signup(email, password, name, selectedRole);
-      // The root layout will automatically redirect to (tabs) when user state changes
-      router.replace('/');
+      if (selectedRole === 'startup') {
+        router.replace('/(startup)');
+      } else {
+        router.replace('/(investor)');
+      }
     } catch (err) {
       // Error is set in context
     }

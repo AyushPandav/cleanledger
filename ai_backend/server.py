@@ -85,13 +85,9 @@ async def analyze_startup(req: AnalyzeRequest):
             detail=f"MISTRAL_API_KEY not found. Looked in: {env_path}"
         )
 
-    # Recalculate score server-side for accuracy
-    data = req.dict()
-    score = calculate_completion_score(data)
-    req.profileCompletionScore = score
-
+    # Trust the carefully calculated frontend score, as the AI dict doesn't contain all DB fields.
     result = analyze_startup_profile(req, mistral_api_key)
-    result["profileCompletionScore"] = score
+    result["profileCompletionScore"] = req.profileCompletionScore
     return result
 
 

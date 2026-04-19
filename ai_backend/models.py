@@ -22,6 +22,7 @@ class StartupProfileRequest(BaseModel):
     stage: Optional[str] = None
     teamMembers: Optional[List[TeamMember]] = []
     milestones: Optional[List[Milestone]] = []
+    pitchVideoUrl: Optional[str] = None
 
 
 class AnalyzeRequest(BaseModel):
@@ -30,6 +31,7 @@ class AnalyzeRequest(BaseModel):
     fundingGoal: Optional[float] = None
     teamMembers: Optional[List[TeamMember]] = []
     milestones: Optional[List[Milestone]] = []
+    pitchVideoUrl: Optional[str] = None
     profileCompletionScore: Optional[int] = 0
     foundedYear: Optional[str] = None
     founderExperience: Optional[str] = None
@@ -37,6 +39,8 @@ class AnalyzeRequest(BaseModel):
     kycCompleted: Optional[bool] = False
     panId: Optional[str] = None
     gstRegistration: Optional[str] = None
+    businessFileName: Optional[str] = None
+    kycFileName: Optional[str] = None
 
 
 class StartupData(BaseModel):

@@ -48,6 +48,7 @@ export default function InvestorLayout() {
         />
       ))}
       <Tabs.Screen name="compare" options={{ href: null }} />
+      <Tabs.Screen name="wallet" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -64,6 +64,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        <Text style={styles.sectionHeading}>WALLET</Text>
+        <View style={styles.list}>
+          <TouchableOpacity style={styles.listItem} onPress={() => router.push('/(investor)/wallet')}>
+            <MaterialCommunityIcons name="wallet-outline" size={24} color="#6366F1" />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <Text style={styles.listText}>Digital Wallet</Text>
+              <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>Add money, view transactions</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.sectionHeading}>AI TOOLS</Text>
         <View style={styles.list}>
           <TouchableOpacity style={styles.listItem} onPress={() => router.push('/compare')}>

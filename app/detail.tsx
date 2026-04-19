@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Platform, StatusBar
+  ActivityIndicator, Platform, Alert
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,6 +10,9 @@ import { colors, spacing, fontSize, borderRadius } from '../constants/theme';
 import { Badge } from '../components/ui';
 import { API_HOST_NODE } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
+import { WebView } from 'react-native-webview';
+import { Modal } from 'react-native';
+const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
 
 const INDUSTRY_COLORS: Record<string, string> = {
   FinTech: '#6366F1', HealthTech: '#10B981', EdTech: '#0EA5E9',
@@ -48,6 +51,18 @@ export default function DetailScreen() {
   const [investing, setInvesting] = useState(false);
   const [invested, setInvested] = useState(false);
 
+  const [sandboxOrder, setSandboxOrder] = useState<any>(null);
+  const [showSandbox, setShowSandbox] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API_HOST_NODE}/api/wallet/${user.id}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setWalletBalance(d.wallet.balance); })
+      .catch(() => { });
+  }, [user?.id]);
+
   useEffect(() => {
     if (!id) { setLoading(false); return; }
     fetch(`${API_HOST_NODE}/api/user/${id}`)
@@ -57,23 +72,77 @@ export default function DetailScreen() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const investAmount = startup ? Math.round(startup.fundingGoal ? startup.fundingGoal * 0.01 : 10000) : 10000;
+
   const handleInvest = async () => {
     if (!user?.id || !startup?.id) return;
     setInvesting(true);
     try {
-      const r = await fetch(`${API_HOST_NODE}/api/investments`, {
+      // ── Step 1: Create Razorpay Order on backend ────────────────────────────
+      const orderRes = await fetch(`${API_HOST_NODE}/api/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          amount: investAmount,
           investorId: user.id,
           startupId: startup.id,
-          amountInvested: startup.fundingGoal ? startup.fundingGoal * 0.01 : 10000,
         }),
       });
-      const d = await r.json();
-      if (d.success) setInvested(true);
-    } catch (e) { console.error(e); }
-    finally { setInvesting(false); }
+      const orderData = await orderRes.json();
+      if (!orderData.success || !orderData.order) {
+        throw new Error(orderData.error || 'Failed to create payment order');
+      }
+
+      // ── Step 2: Show Custom Sandbox UI ─────────────────────────────────────
+      setSandboxOrder(orderData.order);
+      setShowSandbox(true);
+      setInvesting(false);
+
+    } catch (e: any) {
+      setInvesting(false);
+      Alert.alert('Payment Error', e?.message || 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleSandboxPayment = async (status: 'success' | 'cancelled') => {
+    try {
+      if (status === 'success' && sandboxOrder) {
+        setShowSandbox(false);
+        setInvesting(true);
+
+        // ── Step 3: Verify signature on backend & record investment ─────────────
+        const verifyRes = await fetch(`${API_HOST_NODE}/api/payment/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: sandboxOrder.id,
+            razorpay_payment_id: 'pay_sandbox_' + Date.now(),
+            razorpay_signature: 'dummy_signature',
+            investorId: user?.id,
+            startupId: startup?.id,
+            amount: investAmount,
+          }),
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.success) {
+          setInvested(true);
+          if (verifyData.investorWallet) setWalletBalance(verifyData.investorWallet.balance);
+          Alert.alert(
+            'Investment Successful! 🎉',
+            `₹${(investAmount / 1000).toFixed(0)}K invested in ${startup.name}.\nWallet balance: ₹${verifyData.investorWallet?.balance?.toLocaleString('en-IN') || '—'}`
+          );
+        } else {
+          Alert.alert('Verification Failed', verifyData.error || 'Payment could not be verified.');
+        }
+      } else if (status === 'cancelled') {
+        setShowSandbox(false);
+      }
+    } catch (e: any) {
+      Alert.alert('Payment Error', 'Payment verification failed.');
+    } finally {
+      setInvesting(false);
+      setSandboxOrder(null);
+    }
   };
 
   if (loading) {
@@ -127,7 +196,7 @@ export default function DetailScreen() {
           <View style={styles.heroMeta}>
             <InfoChip icon="domain" label={startup.industry || 'Unknown'} />
             <InfoChip icon="rocket-launch-outline" label={startup.stage || 'Early Stage'} />
-            {startup.foundedYear ? <InfoChip icon="calendar-outline" label={`Est. ${startup.foundedYear}`} /> : null}
+            {startup.foundedYear ? <InfoChip icon="calendar-outline" label={`Est.${startup.foundedYear}`} /> : null}
           </View>
         </View>
       </View>
@@ -154,7 +223,7 @@ export default function DetailScreen() {
         <View style={styles.metricsGrid}>
           <View style={styles.metricCard}>
             <MaterialCommunityIcons name="currency-inr" size={18} color={accentColor} />
-            <Text style={styles.metricValue}>{startup.fundingGoal ? `₹${(startup.fundingGoal / 100000).toFixed(1)}L` : '—'}</Text>
+            <Text style={styles.metricValue}>{startup.fundingGoal ? `₹${(startup.fundingGoal / 100000).toFixed(1)} L` : '—'}</Text>
             <Text style={styles.metricLabel}>Funding Goal</Text>
           </View>
           <View style={styles.metricCard}>
@@ -183,7 +252,7 @@ export default function DetailScreen() {
             </Text>
           </View>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.min(profileScore, 100)}%` as any, backgroundColor: accentColor }]} />
+            <View style={[styles.progressFill, { width: `${Math.min(profileScore, 100)}% ` as any, backgroundColor: accentColor }]} />
           </View>
         </View>
 
@@ -313,10 +382,11 @@ export default function DetailScreen() {
         <View style={[styles.investBar, { paddingBottom: insets.bottom + 8 }]}>
           <View style={styles.investBarInner}>
             <View>
-              <Text style={styles.investBarLabel}>Minimum Investment</Text>
+              <Text style={styles.investBarLabel}>Min. Investment (1% of goal)</Text>
               <Text style={styles.investBarAmount}>
-                ₹{startup.fundingGoal ? ((startup.fundingGoal * 0.01) / 1000).toFixed(0) + 'K' : '10K'}
+                ₹{(investAmount / 1000).toFixed(0)}K
               </Text>
+              <Text style={styles.investBarSub}>Powered by Razorpay · Test Mode</Text>
             </View>
             <TouchableOpacity
               style={[styles.investBtn, { backgroundColor: invested ? '#64748B' : accentColor }]}
@@ -339,6 +409,40 @@ export default function DetailScreen() {
           </View>
         </View>
       )}
+
+      {/* Custom Sandbox Payment Modal */}
+      <Modal visible={showSandbox} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.7)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 32, alignItems: 'center' }}>
+            <MaterialCommunityIcons name="shield-check" size={54} color="#10B981" />
+            <Text style={{ fontSize: 22, fontWeight: '800', marginTop: 16, color: '#0F172A' }}>Test Sandbox</Text>
+            <Text style={{ textAlign: 'center', color: '#64748B', marginTop: 8, fontSize: 13, paddingHorizontal: 16 }}>
+              A secure simulation environment for testing investments.
+            </Text>
+
+            <View style={{ backgroundColor: '#F8FAFC', padding: 20, borderRadius: 16, width: '100%', marginVertical: 28, borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontWeight: '600', color: '#64748B', fontSize: 15 }}>Investment</Text>
+              <Text style={{ fontWeight: '800', fontSize: 22, color: '#0F172A' }}>₹{(investAmount / 100000).toFixed(1)}L</Text>
+            </View>
+
+            <TouchableOpacity
+              style={{ backgroundColor: '#10B981', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+              onPress={() => handleSandboxPayment('success')}
+            >
+              <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Simulate Success</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ padding: 16, marginTop: 12 }}
+              onPress={() => handleSandboxPayment('cancelled')}
+            >
+              <Text style={{ color: '#94A3B8', fontWeight: '700', fontSize: 15 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -483,6 +587,7 @@ const styles = StyleSheet.create({
   investBarInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   investBarLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
   investBarAmount: { fontSize: 20, fontWeight: '800', color: '#0F172A' },
+  investBarSub: { fontSize: 10, color: '#10B981', fontWeight: '600', marginTop: 2 },
   investBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14,

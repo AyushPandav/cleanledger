@@ -10,19 +10,22 @@ import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
 import { Badge } from '../../components/ui';
 import { API_HOST_NODE } from '../../context/AuthContext';
 
-const FILTERS = ['All', 'FinTech', 'HealthTech', 'EdTech', 'AgriTech', 'AI/ML', 'Low Risk', 'Verified'];
+const SCOPE_FILTERS = ['All', 'Low Risk', 'Verified'];
+const INDUSTRY_FILTERS = ['FinTech', 'HealthTech', 'EdTech', 'AgriTech', 'AI/ML'];
 
 const INDUSTRY_COLORS: Record<string, string> = {
   FinTech: '#6366F1', HealthTech: '#10B981', EdTech: '#0EA5E9',
   AgriTech: '#22C55E', 'AI/ML': '#8B5CF6', Logistics: '#F59E0B',
   SaaS: '#EC4899', Other: '#64748B',
 };
+
 const getRiskVariant = (r: string): 'low' | 'med' | 'high' => {
   const s = r?.toLowerCase() || '';
   if (s.includes('low')) return 'low';
   if (s.includes('med')) return 'med';
   return 'high';
 };
+
 const getIndustryColor = (industry: string) => INDUSTRY_COLORS[industry] || '#64748B';
 
 export default function ExploreScreen() {
@@ -91,17 +94,38 @@ export default function ExploreScreen() {
         )}
       </View>
 
-      {/* Filter chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={styles.filterBar} contentContainerStyle={styles.filterContent}>
-        {FILTERS.map(f => (
-          <TouchableOpacity key={f}
-            style={[styles.chip, activeFilter === f && styles.chipActive]}
-            onPress={() => setActiveFilter(f)} activeOpacity={0.7}>
-            <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Filter chips — fixed grouped layout */}
+      <View style={styles.filterSection}>
+        {/* Row 1: Scope */}
+        <View style={styles.filterRow}>
+          {SCOPE_FILTERS.map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.chip, activeFilter === f && styles.chipActive]}
+              onPress={() => setActiveFilter(f)}
+              activeOpacity={0.7}>
+              <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>{f}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Divider */}
+        <View style={styles.filterDivider} />
+
+        {/* Row 2: Industries */}
+        <View style={styles.filterRow}>
+          {INDUSTRY_FILTERS.map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.chip, activeFilter === f && styles.chipActive]}
+              onPress={() => setActiveFilter(f)}
+              activeOpacity={0.7}>
+              <View style={[styles.industryDot, { backgroundColor: activeFilter === f ? '#fff' : (INDUSTRY_COLORS[f] || '#64748B') }]} />
+              <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>{f}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {/* List */}
       {loading ? (
@@ -134,14 +158,14 @@ export default function ExploreScreen() {
                 onPress={() => router.push({ pathname: '/detail', params: { id: item.id || item._id } })}
                 activeOpacity={0.93}
               >
-                {/* Colored top strip */}
                 <View style={[styles.cardStrip, { backgroundColor: item.accentColor }]} />
 
                 <View style={styles.cardContent}>
-                  {/* Avatar + Rank row */}
                   <View style={styles.cardHeader}>
-                    <View style={[styles.avatar, { backgroundColor: item.accentColor }]}>
-                      <Text style={styles.avatarText}>{item.name?.charAt(0) || 'S'}</Text>
+                    <View style={[styles.avatarOuter, { borderColor: item.accentColor + '30' }]}>
+                      <View style={[styles.avatar, { backgroundColor: item.accentColor + '18' }]}>
+                        <Text style={[styles.avatarText, { color: item.accentColor }]}>{item.name?.charAt(0)?.toUpperCase() || 'S'}</Text>
+                      </View>
                     </View>
 
                     <View style={styles.cardHeaderMid}>
@@ -149,12 +173,11 @@ export default function ExploreScreen() {
                       <Text style={styles.cardMeta}>{item.industry || 'Unknown'}  ·  {item.stage || 'Early Stage'}</Text>
                     </View>
 
-                    <View style={styles.rankPill}>
-                      <Text style={styles.rankText}>#{item.rank}</Text>
+                    <View style={[styles.rankPill, { borderColor: item.accentColor + '40', backgroundColor: item.accentColor + '10' }]}>
+                      <Text style={[styles.rankText, { color: item.accentColor }]}>#{item.rank}</Text>
                     </View>
                   </View>
 
-                  {/* Tags row */}
                   <View style={styles.tagsRow}>
                     <Badge variant={item.risk}>
                       {item.risk === 'low' ? 'Low Risk' : item.risk === 'med' ? 'Med Risk' : 'High Risk'}
@@ -163,12 +186,12 @@ export default function ExploreScreen() {
                     {isVerified ? (
                       <View style={styles.verifyBadge}>
                         <MaterialCommunityIcons name="shield-check" size={12} color="#10B981" />
-                        <Text style={[styles.verifyText, { color: '#10B981' }]}>Fully Verified</Text>
+                        <Text style={[styles.verifyText, { color: '#10B981' }]}>Verified</Text>
                       </View>
                     ) : isPartialVerified ? (
                       <View style={[styles.verifyBadge, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
                         <MaterialCommunityIcons name="shield-half-full" size={12} color="#D97706" />
-                        <Text style={[styles.verifyText, { color: '#D97706' }]}>Partial</Text>
+                        <Text style={[styles.verifyText, { color: '#D97706' }]}>Partial KYC</Text>
                       </View>
                     ) : (
                       <View style={[styles.verifyBadge, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
@@ -178,9 +201,7 @@ export default function ExploreScreen() {
                     )}
                   </View>
 
-                  {/* Stats row */}
                   <View style={styles.statsRow}>
-                    {/* Trust score */}
                     <View style={styles.statBox}>
                       <View style={styles.statLabelRow}>
                         <MaterialCommunityIcons name="robot-outline" size={12} color="#94A3B8" />
@@ -189,7 +210,6 @@ export default function ExploreScreen() {
                       <Text style={[styles.statValue, { color: trustColor }]}>{trust}<Text style={styles.statUnit}>/100</Text></Text>
                     </View>
 
-                    {/* Funding goal */}
                     <View style={[styles.statBox, styles.statBoxMid]}>
                       <View style={styles.statLabelRow}>
                         <MaterialCommunityIcons name="currency-inr" size={12} color="#94A3B8" />
@@ -200,7 +220,6 @@ export default function ExploreScreen() {
                       </Text>
                     </View>
 
-                    {/* Completion */}
                     <View style={styles.statBox}>
                       <View style={styles.statLabelRow}>
                         <MaterialCommunityIcons name="progress-check" size={12} color="#94A3B8" />
@@ -210,15 +229,14 @@ export default function ExploreScreen() {
                     </View>
                   </View>
 
-                  {/* Progress bar */}
                   <View style={styles.progressBg}>
                     <View style={[styles.progressFill, {
                       width: `${Math.min(item.profileCompletionScore || 0, 100)}%` as any,
                       backgroundColor: item.accentColor,
+                      opacity: 0.85,
                     }]} />
                   </View>
 
-                  {/* Tap hint */}
                   <View style={styles.tapHint}>
                     <Text style={styles.tapHintText}>View full profile</Text>
                     <MaterialCommunityIcons name="chevron-right" size={14} color="#94A3B8" />
@@ -262,15 +280,41 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: fontSize.base, color: '#0F172A' },
 
-  filterBar: { flexGrow: 0, marginBottom: spacing.md },
-  filterContent: { paddingHorizontal: spacing.lg, gap: 8, paddingBottom: 2 },
+  // ── Filter section (fixed) ─────────────────────────────────────
+  filterSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 8,
+  },
   chip: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: colors.white, borderWidth: 1, borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   chipActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
   chipText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
   chipTextActive: { color: colors.white },
+  industryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  // ──────────────────────────────────────────────────────────────
 
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: fontSize.sm, color: '#94A3B8' },
@@ -283,29 +327,33 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: colors.white, borderRadius: 20, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#E2E8F0',
+    borderWidth: 1, borderColor: '#E8EDF2',
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
-      android: { elevation: 3 },
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
     }),
   },
-  cardStrip: { height: 4 },
+  cardStrip: { height: 5 },
   cardContent: { padding: 16, gap: 12 },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarOuter: {
+    width: 50, height: 50, borderRadius: 15,
+    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+  },
   avatar: {
-    width: 48, height: 48, borderRadius: 14,
+    width: 44, height: 44, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: '800', color: colors.white },
+  avatarText: { fontSize: 20, fontWeight: '800' },
   cardHeaderMid: { flex: 1 },
   cardName: { fontSize: 16, fontWeight: '700', color: '#0F172A', letterSpacing: -0.2 },
   cardMeta: { fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500' },
   rankPill: {
-    backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0',
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 10, borderWidth: 1,
   },
-  rankText: { fontSize: 12, fontWeight: '800', color: '#334155' },
+  rankText: { fontSize: 12, fontWeight: '800' },
 
   tagsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   verifyBadge: {

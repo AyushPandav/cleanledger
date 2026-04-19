@@ -26,21 +26,21 @@ class StartupProfileRequest(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    description: Optional[str] = None
-    industry: Optional[str] = None
-    fundingGoal: Optional[float] = None
-    teamMembers: Optional[List[TeamMember]] = []
-    milestones: Optional[List[Milestone]] = []
-    pitchVideoUrl: Optional[str] = None
-    profileCompletionScore: Optional[int] = 0
-    foundedYear: Optional[str] = None
-    founderExperience: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
+    industry: Optional[str] = Field(None, max_length=100)
+    fundingGoal: Optional[float] = Field(None, ge=0, le=1_000_000_000)
+    teamMembers: Optional[List[TeamMember]] = Field([], max_items=50)
+    milestones: Optional[List[Milestone]] = Field([], max_items=50)
+    pitchVideoUrl: Optional[str] = Field(None, max_length=500)
+    profileCompletionScore: Optional[int] = Field(0, ge=0, le=100)
+    foundedYear: Optional[str] = Field(None, max_length=4)
+    founderExperience: Optional[str] = Field(None, max_length=500)
     businessRegistered: Optional[bool] = False
     kycCompleted: Optional[bool] = False
-    panId: Optional[str] = None
-    gstRegistration: Optional[str] = None
-    businessFileName: Optional[str] = None
-    kycFileName: Optional[str] = None
+    panId: Optional[str] = Field(None, max_length=20)
+    gstRegistration: Optional[str] = Field(None, max_length=30)
+    businessFileName: Optional[str] = Field(None, max_length=200)
+    kycFileName: Optional[str] = Field(None, max_length=200)
 
 
 class StartupData(BaseModel):

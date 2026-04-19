@@ -27,7 +27,9 @@ export default function StartupCommunityScreen() {
         if (!user?.id) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API_HOST_PYTHON}/questions/startup/${user.id}`);
+            const res = await fetch(`${API_HOST_PYTHON}/questions/startup/${user.id}`, {
+                headers: { 'x-platform-secret': 'FINTECH_SECURE_123' }
+            });
             const data = await res.json();
             if (data.status === 'success') {
                 setQuestions(data.questions);
@@ -64,7 +66,10 @@ export default function StartupCommunityScreen() {
         try {
             const res = await fetch(`${API_HOST_PYTHON}/questions/${questionId}/answer`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-platform-secret': 'FINTECH_SECURE_123'
+                },
                 body: JSON.stringify({ answer: answerText })
             });
             const data = await res.json();

@@ -173,7 +173,10 @@ export default function CreateStartupProfileScreen() {
             // ── Step 2: Fire AI analysis in background (non-blocking) ──
             fetch(`${API_HOST_PYTHON}/startup/analyze`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-platform-secret': 'FINTECH_SECURE_123'
+                },
                 body: JSON.stringify({
                     description,
                     industry,

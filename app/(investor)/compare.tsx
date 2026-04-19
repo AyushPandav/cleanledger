@@ -75,7 +75,10 @@ export default function CompareScreen() {
     try {
       const res = await fetch(`${API_HOST_PYTHON}/api/compare`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'x-platform-secret': 'FINTECH_SECURE_123'
+        },
         body: JSON.stringify({ startup1: s1, startup2: s2 }),
       });
       const data = await res.json();

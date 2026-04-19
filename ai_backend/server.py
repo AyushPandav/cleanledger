@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from pathlib import Path
@@ -40,8 +40,14 @@ async def health():
     return {"status": "ok", "message": "Fintech AI Backend is running"}
 
 
+async def verify_api_key(x_platform_secret: str = Header(None)):
+    """Simple API Gateway Auth to block public abuse of Mistral Tokens."""
+    if x_platform_secret != "FINTECH_SECURE_123":
+        raise HTTPException(status_code=401, detail="Unauthorized AI Gateway Access")
+
+
 # ─── Startup Profile: Create / Update ─────────────────────────────────────────
-@app.post("/startup/profile")
+@app.post("/startup/profile", dependencies=[Depends(verify_api_key)])
 async def create_or_update_profile(req: StartupProfileRequest):
     """
     Accepts startup profile fields, computes profileCompletionScore,
@@ -72,7 +78,7 @@ async def create_or_update_profile(req: StartupProfileRequest):
 
 
 # ─── Startup Analyze: AI Scorecard ────────────────────────────────────────────
-@app.post("/startup/analyze")
+@app.post("/startup/analyze", dependencies=[Depends(verify_api_key)])
 async def analyze_startup(req: AnalyzeRequest):
     """
     Calls Mistral AI to generate a full risk scorecard for a startup.
@@ -92,7 +98,7 @@ async def analyze_startup(req: AnalyzeRequest):
 
 
 # ─── Compare Two Startups ─────────────────────────────────────────────────────
-@app.post("/api/compare")
+@app.post("/api/compare", dependencies=[Depends(verify_api_key)])
 async def compare_startups(req: CompareRequest):
     mistral_api_key = os.getenv("MISTRAL_API_KEY")
     if not mistral_api_key:

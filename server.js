@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
+// ── Enterprise Security Middleware ──
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { ethers } = require('ethers');
 const paillierBigint = require('paillier-bigint');
 
@@ -17,8 +20,32 @@ paillierBigint.generateRandomKeys(512).then(keys => {
 });
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// ── Security Middlewares (order matters) ──
+// Helmet first - configured to be API-safe (no HTML error pages)
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  xssFilter: false, // Crashes on modern Node (read-only req.query)
+}));
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-platform-secret'],
+}));
+
+app.use(express.json({ limit: '1mb' })); // Prevent JSON payload DOS attacks
+
+// ── DDOS / Brute Force Protection ──
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
 
 const MONGODB_URI = process.env.EXPO_PUBLIC_MONGO_URI;
 
@@ -575,6 +602,15 @@ app.post('/api/wallet/create-order', async (req, res) => {
     console.error('❌ Wallet order error:', msg, JSON.stringify(err));
     res.status(500).json({ error: msg });
   }
+});
+
+// ── Global fallback: ALWAYS return JSON, never HTML ──────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
+});
+app.use((err, req, res, next) => {
+  console.error('❌ Unhandled Express error:', err.message);
+  res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 app.listen(PORT, '0.0.0.0', () => console.log(`\n\n🟢 Express Server running on port ${PORT} (0.0.0.0)`));

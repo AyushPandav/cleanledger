@@ -43,7 +43,9 @@ export default function InvestorCommunityScreen() {
         setSelectedStartup(startup);
         setFetchingQ(true);
         try {
-            const res = await fetch(`${API_HOST_PYTHON}/questions/startup/${startup.id}`);
+            const res = await fetch(`${API_HOST_PYTHON}/questions/startup/${startup.id}`, {
+                headers: { 'x-platform-secret': 'FINTECH_SECURE_123' }
+            });
             const data = await res.json();
             if (data.status === 'success') {
                 setQuestions(data.questions);
@@ -60,7 +62,10 @@ export default function InvestorCommunityScreen() {
         try {
             const res = await fetch(`${API_HOST_PYTHON}/questions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-platform-secret': 'FINTECH_SECURE_123'
+                },
                 body: JSON.stringify({
                     startupId: selectedStartup.id,
                     investorId: user?.id || 'demo_investor',

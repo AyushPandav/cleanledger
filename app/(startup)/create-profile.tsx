@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
 import { useAuth, API_HOST_NODE, API_HOST_PYTHON } from '../../context/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 
 const STAGES = ['Pre-seed', 'Seed', 'Series A', 'Series B', 'Growth'];
 const INDUSTRIES = ['FinTech', 'HealthTech', 'EdTech', 'AgriTech', 'AI/ML', 'Logistics', 'SaaS', 'Other'];
@@ -47,22 +48,64 @@ export default function CreateStartupProfileScreen() {
     const [businessFileName, setBusinessFileName] = useState('');
     const [kycFileName, setKycFileName] = useState('');
 
-    const handleDocumentUpload = async (docName: string, setVerifiedState: any) => {
+    const handleDocumentUpload = async (docName: string, setVerifiedState: (v: boolean) => void) => {
         try {
-            const res = await DocumentPicker.getDocumentAsync({});
-            if (!res.canceled) {
-                setLoadingDoc(docName);
-                if (docName === 'Business Registration') setBusinessFileName(res.assets[0].name);
-                if (docName === 'KYC Document') setKycFileName(res.assets[0].name);
+            const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: false });
+            if (res.canceled) return;
 
-                setTimeout(() => {
-                    setVerifiedState(true); // AI verified it!
-                    setLoadingDoc('');
-                    Alert.alert("AI Document Validation", `Your ${docName} was scanned and legally validated by our AI Engine. Authenticity confirmed!`);
-                }, 2500);
+            const file = res.assets[0];
+            const fileName = file.name;
+            const docType = docName === 'Business Registration' ? 'business' : 'kyc';
+
+            setLoadingDoc(docName);
+
+            // Track filename for AI backend analysis
+            if (docName === 'Business Registration') setBusinessFileName(fileName);
+            if (docName === 'KYC Document') setKycFileName(fileName);
+
+            // Extract base64 for real Image Analysis if it's an image
+            let base64Data: string | null = null;
+            if (file.mimeType?.startsWith('image') || fileName.match(/\.(jpg|jpeg|png)$/i)) {
+                try {
+                    base64Data = await FileSystem.readAsStringAsync(file.uri, {
+                        encoding: 'base64',
+                    });
+                } catch (e) {
+                    console.error("Failed to read base64", e);
+                }
+            }
+
+            // ── Real AI verification call ──────────────────────────
+            const verifyRes = await fetch(`${API_HOST_PYTHON}/verify-document`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-platform-secret': 'FINTECH_SECURE_123',
+                },
+                body: JSON.stringify({ fileName, docType, base64Data }),
+            });
+
+            const verifyData = await verifyRes.json();
+            setLoadingDoc('');
+
+            if (verifyData.verified === true) {
+                setVerifiedState(true);
+                Alert.alert(
+                    '✅ AI Document Verified',
+                    `"${fileName}" passed our AI compliance check.\n\nConfidence: ${verifyData.confidence ?? '—'}%\n${verifyData.reason ?? ''}`
+                );
+            } else {
+                setVerifiedState(false);
+                if (docName === 'Business Registration') setBusinessFileName('');
+                if (docName === 'KYC Document') setKycFileName('');
+                Alert.alert(
+                    `🚨 Verification Failed — ${verifyData.label ?? 'REJECTED'}`,
+                    `"${fileName}" was rejected by our AI compliance engine.\n\nReason: ${verifyData.reason ?? 'Unrelated or fraudulent document detected.'}\n\nPlease upload the correct legal document.`
+                );
             }
         } catch (error) {
-            console.log("Upload cancelled");
+            setLoadingDoc('');
+            Alert.alert('Upload Error', 'Could not verify document. Please try again.');
         }
     };
 

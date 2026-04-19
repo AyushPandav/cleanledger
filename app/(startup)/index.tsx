@@ -1,15 +1,54 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, fontSize, borderRadius } from '../../constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ProgressBar, Badge } from '../../components/ui';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, API_HOST_NODE } from '../../context/AuthContext';
 
 export default function StartupDashboardScreen() {
      const router = useRouter();
      const { user } = useAuth();
+     const [profile, setProfile] = useState<any>(null);
+     const [investments, setInvestments] = useState<any[]>([]);
+     const [loading, setLoading] = useState(true);
+
+     useEffect(() => {
+          if (!user?.id) return;
+
+          const fetchData = async () => {
+               try {
+                    // Fetch profile
+                    const pRes = await fetch(`${API_HOST_NODE}/api/user/${user.id}`);
+                    const pData = await pRes.json();
+                    if (pData.success) setProfile(pData.user);
+
+                    // Fetch investments received
+                    const iRes = await fetch(`${API_HOST_NODE}/api/startup-investments/${user.id}`);
+                    const iData = await iRes.json();
+                    if (iData.success) setInvestments(iData.investments);
+               } catch (e) {
+                    console.error('Error fetching dashboard data:', e);
+               } finally {
+                    setLoading(false);
+               }
+          };
+
+          fetchData();
+     }, [user?.id]);
+
+     const totalFunded = investments.reduce((sum, inv) => sum + (inv.amountInvested || 0), 0);
+     const goal = profile?.fundingGoal || 5000000;
+     const progress = Math.min(Math.round((totalFunded / goal) * 100), 100);
+
+     if (loading) {
+          return (
+               <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <ActivityIndicator size="large" color={colors.green} />
+               </SafeAreaView>
+          );
+     }
 
      return (
           <SafeAreaView style={styles.container}>
@@ -24,11 +63,13 @@ export default function StartupDashboardScreen() {
                     {/* Funding Progress */}
                     <View style={styles.card}>
                          <Text style={styles.cardTitle}>Funding Goal</Text>
-                         <Text style={styles.largeTotal}>₹36L <Text style={styles.subTotal}>/ ₹50L</Text></Text>
-                         <ProgressBar progress={72} height={8} style={{ marginVertical: spacing.md }} />
+                         <Text style={styles.largeTotal}>
+                              ₹{(totalFunded / 100000).toFixed(1)}L <Text style={styles.subTotal}>/ ₹{(goal / 100000).toFixed(1)}L</Text>
+                         </Text>
+                         <ProgressBar progress={progress} height={8} style={{ marginVertical: spacing.md }} />
                          <View style={styles.rowBetween}>
-                              <Text style={styles.cardMeta}>72% Funded</Text>
-                              <Text style={styles.cardMeta}>12 Investors</Text>
+                              <Text style={styles.cardMeta}>{progress}% Funded</Text>
+                              <Text style={styles.cardMeta}>{investments.length} Investors</Text>
                          </View>
                     </View>
 
@@ -38,7 +79,7 @@ export default function StartupDashboardScreen() {
                               <View style={styles.profileCtaIcon}>
                                    <MaterialCommunityIcons name="rocket-launch-outline" size={22} color={colors.white} />
                               </View>
-                              <View>
+                              <View style={{ flex: 1 }}>
                                    <Text style={styles.profileCtaTitle}>Build Your Startup Profile</Text>
                                    <Text style={styles.profileCtaSubtitle}>Get an AI-powered scorecard & appear in investor rankings</Text>
                               </View>
@@ -64,20 +105,23 @@ export default function StartupDashboardScreen() {
 
                     <Text style={styles.sectionTitle}>Recent Activity</Text>
                     <View style={styles.card}>
-                         <View style={styles.activityItem}>
-                              <View style={styles.activityIcon}><MaterialCommunityIcons name="currency-inr" size={16} color={colors.green} /></View>
-                              <View style={styles.activityInfo}>
-                                   <Text style={styles.activityTitle}>₹5,00,000 Invested</Text>
-                                   <Text style={styles.activityTime}>2 hours ago</Text>
-                              </View>
-                         </View>
-                         <View style={[styles.activityItem, { borderBottomWidth: 0 }]}>
-                              <View style={[styles.activityIcon, { backgroundColor: colors.grayMedium }]}><MaterialCommunityIcons name="flag" size={16} color={colors.black} /></View>
-                              <View style={styles.activityInfo}>
-                                   <Text style={styles.activityTitle}>Milestone 2 Verified</Text>
-                                   <Text style={styles.activityTime}>Yesterday</Text>
-                              </View>
-                         </View>
+                         {investments.length === 0 ? (
+                              <Text style={{ textAlign: 'center', color: colors.textSecondary, paddingVertical: 20 }}>No investments received yet.</Text>
+                         ) : (
+                              investments.slice(0, 5).map((inv, idx) => (
+                                   <View key={inv._id || idx} style={[styles.activityItem, idx === investments.slice(0, 5).length - 1 && { borderBottomWidth: 0 }]}>
+                                        <View style={styles.activityIcon}>
+                                             <MaterialCommunityIcons name="currency-inr" size={16} color={colors.green} />
+                                        </View>
+                                        <View style={styles.activityInfo}>
+                                             <Text style={styles.activityTitle}>₹{inv.amountInvested?.toLocaleString('en-IN')} Received</Text>
+                                             <Text style={styles.activityTime}>
+                                                  {new Date(inv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} from {inv.investorName || 'Anonymous'}
+                                             </Text>
+                                        </View>
+                                   </View>
+                              ))
+                         )}
                     </View>
                </ScrollView>
           </SafeAreaView>
@@ -93,14 +137,14 @@ const styles = StyleSheet.create({
      },
      greeting: { fontSize: fontSize.sm, color: colors.textSecondary },
      headerTitle: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text },
-     content: { padding: spacing.lg, gap: spacing.md },
+     content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 100 },
      card: {
           backgroundColor: colors.white, borderRadius: borderRadius.lg,
           padding: spacing.lg, borderWidth: 1, borderColor: colors.border,
      },
      cardTitle: { fontSize: fontSize.base, fontWeight: '600', color: colors.textSecondary },
-     largeTotal: { fontSize: 36, fontWeight: '700', color: colors.text, marginTop: spacing.xs },
-     subTotal: { fontSize: fontSize.lg, color: colors.textSecondary, fontWeight: '500' },
+     largeTotal: { fontSize: 32, fontWeight: '700', color: colors.text, marginTop: spacing.xs },
+     subTotal: { fontSize: fontSize.base, color: colors.textSecondary, fontWeight: '500' },
      rowBetween: { flexDirection: 'row', justifyContent: 'space-between' },
      cardMeta: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: '600' },
      actionGrid: { flexDirection: 'row', gap: spacing.sm },
@@ -125,3 +169,4 @@ const styles = StyleSheet.create({
      profileCtaTitle: { fontSize: fontSize.base, fontWeight: '700', color: colors.text },
      profileCtaSubtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2, flexShrink: 1 },
 });
+

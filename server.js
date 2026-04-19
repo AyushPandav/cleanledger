@@ -109,14 +109,37 @@ const Investment = mongoose.model('Investment', investmentSchema);
 // ── Blockchain Service (Polygon Mumbai Testnet) ──────────────────────────────
 console.log('🔗 Initializing blockchain service on Polygon Mumbai...');
 const BLOCKCHAIN_PRIVATE_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY || '';
-const AMOY_RPC = 'https://rpc-amoy.polygon.technology';
+const USE_LOCAL = (process.env.USE_LOCAL_BLOCKCHAIN || '').trim() === 'true';
+const MAIN_RPC = USE_LOCAL
+  ? 'http://127.0.0.1:8545' 
+  : 'https://ethereum-sepolia-rpc.publicnode.com';
+
+console.log('🌐 Blockchain Connection Info:');
+console.log('   - Mode:', USE_LOCAL ? 'GOD MODE (Local)' : 'LIVE (Ethereum Sepolia / USDC)');
+console.log('   - RPC:', MAIN_RPC);
+console.log('   - Contract:', process.env.EXPO_PUBLIC_CONTRACT_ADDRESS);
+const TRUSTBRIDGE_CONTRACT_ADDRESS = process.env.EXPO_PUBLIC_CONTRACT_ADDRESS || '';
+
+const TRUSTBRIDGE_ABI = [
+  "function recordInvestment(string memory _investorId, string memory _startupId, uint256 _amountInr) external",
+  "function registerStartup(string memory _startupId, address _wallet) external",
+  "function getStartupInvestments(string memory _startupId) external view returns (tuple(string investorId, string startupId, uint256 amount, uint256 timestamp)[])",
+  "function startups(string memory) external view returns (string id, address wallet, uint256 totalFunding, bool isRegistered)"
+];
 
 let blockchainWallet = null;
+let trustBridgeContract = null;
+
 try {
   if (BLOCKCHAIN_PRIVATE_KEY && BLOCKCHAIN_PRIVATE_KEY.startsWith('0x') && BLOCKCHAIN_PRIVATE_KEY.length === 66) {
-    const provider = new ethers.JsonRpcProvider(AMOY_RPC);
+    const provider = new ethers.JsonRpcProvider(MAIN_RPC);
     blockchainWallet = new ethers.Wallet(BLOCKCHAIN_PRIVATE_KEY, provider);
     console.log('✅ Blockchain wallet loaded. Address:', blockchainWallet.address);
+
+    if (TRUSTBRIDGE_CONTRACT_ADDRESS) {
+      trustBridgeContract = new ethers.Contract(TRUSTBRIDGE_CONTRACT_ADDRESS, TRUSTBRIDGE_ABI, blockchainWallet);
+      console.log('📜 TrustBridge Smart Contract initialized at:', TRUSTBRIDGE_CONTRACT_ADDRESS);
+    }
   } else {
     console.warn('⚠️  No BLOCKCHAIN_PRIVATE_KEY set. Investments will not be recorded on-chain.');
   }
@@ -124,26 +147,40 @@ try {
   console.warn('⚠️  Blockchain init failed:', e.message);
 }
 
-const recordOnChain = async (investorId, startupId, amountInr) => {
+const recordOnChain = async (investorId, startupId, amountUsdc) => {
   if (!blockchainWallet) return null;
   try {
-    const data = ethers.hexlify(ethers.toUtf8Bytes(
-      JSON.stringify({ investorId, startupId, amountInr, ts: Date.now(), platform: 'TrustBridge' })
-    ));
-    const tx = await blockchainWallet.sendTransaction({
-      to: blockchainWallet.address, // self-transfer with data payload
-      value: 0n,
-      data,
-      gasLimit: 100000n,
-    });
+    let tx;
+    if (trustBridgeContract) {
+      // 🚀 Strategy: Call the Smart Contract (Decentralized State)
+      // First ensure startup is registered (Simplified for demo: register on the fly if needed)
+      const startup = await trustBridgeContract.startups(startupId);
+      if (!startup.isRegistered) {
+        console.log(`📝 Registering startup ${startupId} on contract...`);
+        const regTx = await trustBridgeContract.registerStartup(startupId, blockchainWallet.address);
+        await regTx.wait();
+      }
+
+      console.log(`🔗 Executing recordInvestment ($USDC) on Smart Contract...`);
+      tx = await trustBridgeContract.recordInvestment(investorId, startupId, amountUsdc);
+    } else {
+      // 🔗 Legacy Strategy: Self-transfer with data payload
+      const data = ethers.hexlify(ethers.toUtf8Bytes(
+        JSON.stringify({ investorId, startupId, amountInr, ts: Date.now(), platform: 'TrustBridge' })
+      ));
+      tx = await blockchainWallet.sendTransaction({
+        to: blockchainWallet.address,
+        value: 0n,
+        data,
+        gasLimit: 100000n,
+      });
+    }
+
     console.log('🔗 Investment recorded on blockchain! TX:', tx.hash);
     return tx.hash;
   } catch (e) {
-    console.log('⚠️  Blockchain real transaction failed (Expected: Wallet out of Gas/MATIC)');
-    console.log('🧪 Hackathon Fallback: Using real baseline blockchain hash for UI demo.');
-    
-    // Use a real Polygon Amoy transaction hash so the UI link successfully resolves!
-    return '0x15ea8e4c4729d049b046f1923c6c40e5e312fe55855dda3226020492f74582e3';
+    console.error('❌ Blockchain transaction failed:', e.message);
+    throw e; // Stop hiding the error with a fallback
   }
 };
 
@@ -498,11 +535,13 @@ app.post('/api/payment/verify', async (req, res) => {
     recordOnChain(investorId, startupId, amount).then(async (txHash) => {
       if (txHash) {
         inv.blockchainTxHash = txHash;
-        inv.blockchainNetwork = 'Polygon Amoy Testnet';
+        inv.blockchainNetwork = 'Ethereum Sepolia Testnet';
         await inv.save();
-        console.log(`🔗 Blockchain TX saved: https://amoy.polygonscan.com/tx/${txHash}`);
+        console.log(`🔗 Blockchain TX saved: https://sepolia.etherscan.io/tx/${txHash}`);
       }
-    }).catch(() => { });
+    }).catch((err) => { 
+      console.error('❌ Background Blockchain record failed:', err.message);
+    });
 
     console.log(`✅ Investment: ₹${amount} from ${investorId} → ${startupName} | Investor balance: ₹${investorWallet.balance}`);
     res.json({ success: true, investment: inv, paymentId: razorpay_payment_id, investorWallet });
